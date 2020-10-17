@@ -1,0 +1,367 @@
+/*
+* 1st main color #262625 #2e2e2c #40403e
+* 2nd main color #ccc #bbb #999
+* backplate color #1a1a1a
+* active color #4482fc #dd3222
+* link color #006bff
+*/
+
+@font-face {
+	font-family: "Menlo Regular";
+	src: url("fonts/Menlo-Regular.ttf");
+}
+
+
+* {
+	user-select: none;
+}
+body {
+	max-height: 100vh;
+    overflow: hidden;
+	margin: 0;
+	padding: 0;
+	background: #262625;
+	font-family: Menlo Regular;
+	color: #ccc;
+}
+a {
+	color: #006bff;
+}
+a:hover {
+	background: #006bff;
+	color: white;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+::-webkit-scrollbar-thumb {
+  background-color: #333331;
+}
+::-webkit-scrollbar-thumb:horizontal:hover, ::-webkit-scrollbar-thumb:vertical:hover {
+  background-color: #40403e;
+}
+::-webkit-scrollbar-thumb:horizontal:active, ::-webkit-scrollbar-thumb:vertical:active {
+  background-color: #4d4d49;
+}
+
+.add-new-tab {
+    display: flex;
+    position: absolute;
+    background: #262625;
+    width: 40px;
+    height: 26px;
+    left: 10px;
+    top: 8px;
+    border-radius: 5px;
+    justify-content: center;
+    align-items: center;
+    color: #aeb3b8;
+    font-weight: bold;
+    z-index: 100;
+    cursor: pointer;
+   	transition: all .2s;
+
+}
+.add-new-tab:hover {
+	background: #2e2e2c;
+	color: #ccc;
+}
+.add-new-tab:active {
+	background: #40403e;
+	color: #ccc;
+}
+.chrome-tabs-content {
+	margin-left: 50px;
+}
+
+
+/*
+.main-container {
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    flex-wrap: wrap;
+    overflow: auto;
+    height: calc(100vh - 82px);
+	position: relative;
+    top: -4px;
+    z-index: 100;
+    padding: 20px;
+}
+*/
+
+.gridster li {
+	list-style-type: none;
+}
+.gridster header {
+	position: absolute;
+	border-radius: 10px;
+	left: -18px;
+	top: 0;
+	display: block;
+	width: 10px;
+	height: 40px;
+	cursor: move;
+}
+.gridster header:hover, .gridster header:active {
+	background: #ccc;
+	border: 2px solid #ccc;
+}
+.in-li-wrapper {
+	height: inherit;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	/* indicator not work!
+		overflow: hidden;
+	*/
+}
+.in-li-wrapper:hover + header {
+	background: #262625;
+	border: 2px solid #ccc;
+	z-index: 200;
+}
+
+
+.render-disabled .in-li-wrapper {
+	display: none !important;
+}
+.render-disabled > li {
+	outline: none;
+	background: #21618C !important;
+	border: 3px dashed #ccc;
+}
+.render-disabled > li::after {
+	display: block;
+	text-align: center;
+	width: 100%;
+	padding-top: 10px;
+	font-size: 1.5em;
+	content: attr(descrition);
+}
+.hide-tab-content {
+	max-height: 0px;
+}
+
+
+.main-container {
+    overflow-y: auto;
+	overflow-x: hidden;
+    height: calc(100vh - 46px);
+    top: -4px;
+    z-index: 100;
+}
+.memory-line {
+	display: block;
+	border-collapse: collapse;
+    white-space: nowrap;
+    overflow: auto;
+    scroll-snap-type: both mandatory;
+}
+.memory-line td {
+	border: 1px solid #ccc;
+    scroll-snap-align: start;
+}
+
+.memory-line td.-arg {
+	border-right: none;
+}
+.memory-line td.-arg + td.-arg {
+	border-left: none;
+	border-right: 1px solid #ccc;
+}
+
+.memory-line td.-cmd input {
+	background: repeating-linear-gradient(
+		-45deg,
+		#262625,
+		#262625 3px,
+		#333331 3px,
+		#333331 5px
+	);
+}
+.memory-line td.-comp input {
+	color: #4580ff;
+
+}
+
+.memory-line input {
+	background: none;
+    border: none;
+    color: #ccc;
+    font-size: medium;
+    font-family: inherit;
+    width: 3ch;
+    outline: none;
+}
+.memory-line-asm input[value=HLT] {
+	color: #dd3222;
+}
+
+.memory-line-pos {
+    cursor: grab;
+}
+.memory-line-pos:active {
+    cursor: grabbing;
+}
+.address {
+    padding: 5px;
+    color: #ccc;
+    text-align: center;
+    background: none;
+}
+.address:focus {
+    outline: 2px solid #ccc;
+}
+.pos {
+	background: #ccc;
+    color: #262625;
+}
+.line-indicator-container {
+	z-index: 101;
+    position: relative;
+    display: flex;
+    justify-content: center;
+}
+.line-indicator {
+    font-size: 4em;
+    background: #ccc;
+    color: #262625;
+    border-radius: .1em;
+    padding: 5px;
+    border: 3px solid #262625;
+}
+.memoryLineAdditButton {
+	display: inline;
+    margin-right: 5px;
+	height: 10px;
+	padding: 0 5px;
+    border-radius: 0 0 5px 5px;
+	cursor: pointer;
+}
+.add-memory-line {
+    background: #4482fc;
+}
+.remove-memory-line {
+	display: none;
+    background: #dd3222;
+}
+.memoryLineInstance:last-child .remove-memory-line {
+	display: inline;
+}
+.regs-container {
+    display: inline-block;
+    width: min-content;
+    margin-right: 10px;
+}
+.regs-info {
+	font-family: Menlo Regular;
+    user-select: none;
+    font-size: larger;
+    border: none;
+    width: 2em;
+}
+.reg-field {
+    display: flex;
+    margin-bottom: 5px;
+}
+.reg-field:last-child {
+    margin-bottom: 0;
+}
+.reg-field > div {
+    padding: 2px;
+    border: 2px solid #ccc;
+}
+.reg-field > div:nth-child(even) {
+    border-radius: 0 5px 5px 0;
+    border-left: none;
+}
+.reg-field input {
+    font-size: larger;
+}
+fieldset {
+	background: #262625;
+    border-radius: 10px;
+    border: 2px solid;
+}
+legend {
+    background: #ccc;
+    padding: 2px;
+    border-radius: 6px;
+}
+legend > div {
+    border: 2px solid;
+    background: #ccc;
+    padding: 5px;
+    color: #262625;
+    border-radius: 5px;
+}
+.terminal-container {
+	height: inherit;
+	min-height: 200px;
+	width: 100%;
+	overflow: auto;
+	background: black;
+}
+.active-block:not(.full-sized) {
+	z-index: 99 !important;
+	background: repeating-linear-gradient(
+		-45deg,
+		#262625,
+		#262625 13px,
+		#2e2e2c 13px,
+		#2e2e2c 15px
+	);
+}
+.full-sized.active-block {
+	z-index: 99 !important;
+    box-shadow: 0px 0px 10px 6px #333331;
+}
+.active-block-bg {
+	z-index: 99 !important;
+	box-shadow: 0 0 5px 5px #2e2e2c;
+	background: #2e2e2c;
+}
+.active-block-outline {
+	z-index: 99 !important;
+	outline: 1px dotted #ccc;
+	outline-offset: 11px;
+}
+.control-button {
+	background: #262625;
+	display: inline-block;
+	padding: 8px;
+	border-radius: 5px;
+	cursor: pointer;
+	margin-right: 10px;
+	text-decoration: none;
+	color: #ccc;
+	border: 2px solid #ccc;
+	border-radius: 3px;
+	transition: .1s;
+}
+.control-button:hover {
+    border: 5px double #ccc;
+}
+.control-button:active {
+    border-style: solid;
+    color: #262625;
+	background: #ccc;
+}
+.CodeMirror {
+	border: 1px solid #32332b;
+	height: inherit !important;
+	font-family: Menlo Regular;
+	font-size: 18px;
+}
+.chrome-tab.unsaved .chrome-tab-close{
+	background: #4482fc !important;
+}
+.chrome-tab.unsaved .chrome-tab-close:hover{
+	background: #456ebf !important;
+}

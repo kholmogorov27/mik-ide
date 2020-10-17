@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<!-- TODO: replace gridster by https://gridstackjs.com/ -->
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>MIKU IDE</title>
+	<link href="css/styles.css" rel="stylesheet">
+	<link href="css/jquery.terminal.min.css" rel="stylesheet">
+	<link href="chrome-tabs/css/chrome-tabs.css" rel="stylesheet">
+    <link href="chrome-tabs/css/chrome-tabs-dark-theme.css" rel="stylesheet">
+	<link href="css/relax-button.css" rel="stylesheet">
+	<link href="css/monokai.css" rel="stylesheet">
+	<link href="node_modules/dsmorse-gridster/dist/jquery.dsmorse-gridster.min.css" rel="stylesheet">
+	<link href='https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.16.0/codemirror.css' rel='stylesheet'>
+</head>
+<body>
+	<script>
+		/*
+		window.nodeRequire = require;
+		delete window.require;
+		delete window.exports; delete window.module;
+		*/
+	</script>
+	<script src="libs/jquery-3.5.1.min.js"></script>
+	<script src="libs/jquery.terminal.min.js"></script>
+	<script src="libs/hotkeys.js"></script>
+	<script src="https://unpkg.com/draggabilly@2.1.1/dist/draggabilly.pkgd.min.js"></script>
+	<script src="chrome-tabs/js/chrome-tabs.js"></script>
+	<script src="libs/scrollbooster.min.js"></script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.16.0/codemirror.js'></script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.16.0/mode/javascript/javascript.js'></script>
+	<script src="node_modules/dsmorse-gridster/dist/jquery.dsmorse-gridster.min.js"></script>
+
+	<script src="globalFuncs.js"></script>
+	<script src="defaults.js"></script>
+	<script src="jqExtentions.js"></script>
+	<script>
+		// --- defaults ---
+
+			/*
+			const sizeOfMemory = 1000;
+			*/
+			const defaultRegisterRange = [-7999, 7999];
+			const SayText = '> ';
+			const inputText = '< ';
+			const debuging = true;
+
+		// --- classes ---
+		Number.prototype.pad = function(size) {
+		  var s = String(this);
+		  while (s.replace('-', '').length < (size || 2)) {s = "0" + s;}
+		  return s;
+		}
+
+		class Register extends EventTarget {
+			constructor(options) {
+				super();
+				options || throwError('Options required');
+				this.range = options.range || defaultRegisterRange; //[ОТ, ДО] or [[число, число, число]]
+				this.propertyRegister = options.propertyRegister || false;
+				this.data = 0;
+				this.name = options.name || '[unknown name]'
+
+				if (this.propertyRegister) {
+					Object.defineProperty(this, 'val', {
+						set: function(val) {
+							debug(`trying to set ${this.name} to: ${val}`);
+							if (!this.isInRange(val)) {
+								internalError(`W register out of range (${val})`);
+							}else {
+								this.data = val;
+								this.propertyRegister.val = sign(this.data);
+								debug('success');
+								this.dispatchEvent(new CustomEvent('registerChanged', {'detail': {'register': this.name, 'value': this.data}}));
+							}
+						}
+					});
+				}else {
+					Object.defineProperty(this, 'val', {
+						set: function(val) {
+							debug(`trying to set ${this.name} to: ${val}`);
+							if (!this.isInRange(val)) {
+								internalError(`Register out of range (${val})`);
+							}else {
+								this.data = val;
+								debug('success');
+								this.dispatchEvent(new CustomEvent('registerChanged', {'detail': {'register': this.name, 'value': this.data}}));
+							}
+						},
+						configurable: true
+					});
+				}
+			}
+
+			isInRange(val) {
+				if (typeof this.range[0] === typeof Number()) {
+					debug(`isInRange: range: ${this.range} (interval); val: ${val} (${typeof val}); result: ${this.range[0] <= val && val <= this.range[1]}`);
+					return this.range[0] <= val && val <= this.range[1]
+				}else if (typeof this.range[0] === typeof Array()){
+					debug(`isInRange: range: ${this.range} (set); val: ${val} (${typeof val}); result: ${this.range[0].includes(val)}`);
+					return this.range[0].includes(val)
+				}else {
+					internalError('Unknown type of range');
+				}
+			}
+		}
+
+		//Control unit (УУ)
+		class CU {
+			constructor() {
+				this.RA = new Register({range: [0, 9999], name: 'RA'}); //Регист адреса
+				this.RK = new Register({range: [Object.keys(f0Commands).map((id) => {return id}).concat(Object.keys(f1Commands).map((id) => {return id}))], name: 'RK'}); //Регист команды
+
+				//Нужно для выявления неизвестных команд
+				Object.defineProperty(this.RK, 'val', {
+					set: function(val) {
+						debug(`trying to set ${this.name} to: ${val}`);
+						if (!this.isInRange(val)) {
+							//internalError(`Unknown command(${val})`);
+							this.data = val;
+							this.dispatchEvent(new CustomEvent('registerChanged', {'detail': {'register': this.name, 'value': this.data}}));
+						}else {
+							this.data = val;
+							debug('success');
+							this.dispatchEvent(new CustomEvent('registerChanged', {'detail': {'register': this.name, 'value': this.data}}));
+						}
+					}
+				});
+				//---
+			}
+
+			async next(context) {
+				let currentCommand = this.RK.data;
+				if (f0Commands.hasOwnProperty(currentCommand) || f1Commands.hasOwnProperty(currentCommand)) {
+					//Порядок перехода RA и выполнения команд важен!
+					if (f0Commands.hasOwnProperty(currentCommand)) {
+						this.RA.val = this.RA.data + 1;
+						await context.MiK.execCommand(currentCommand, 0);
+						//console.log('command type is f0');
+					}else {
+						this.RA.val = this.RA.data + 3;
+						await context.MiK.execCommand(currentCommand, 1);
+						//console.log('command type is f1');
+					}
+					return true;
+				/*
+				}else if (currentCommand === 'halt') {
+					context.MiK.execCommand(currentCommand, 'halt');
+				*/
+				}else {
+					if (currentCommand === 0) {
+						if (this.RA.data === 0) {
+							this.RA.val = this.RA.data + 1;
+							return true
+						}else{
+							return null
+						}
+					}else {
+						internalError(`Unknown command: <${currentCommand}>`);
+						return false
+					}
+				}
+			}
+		}
+
+		//Arithmetic logic unit (АЛУ)
+		class ALU {
+			constructor() {
+				this.W = new Register({range: [[-1, 0, 1]], name: 'W'}); //Регистр признака
+				this.S = new Register({name: 'S', propertyRegister: this.W}); //Сумматор
+				this.R1 = new Register({name: 'R1'}); //Рабочий регистр
+
+
+			}
+
+			add() {
+				debug(`${this.S.data} + ${this.R1.data} = ${this.S.data + this.R1.data}`);
+				this.S.val = this.S.data + this.R1.data;
+			}
+
+			sub() {
+				debug(`${this.S.data} + ${this.R1.data} = ${this.S.data - this.R1.data}`);
+				this.S.val = this.S.data - this.R1.data;
+			}
+		}
+
+		class Processor {
+			constructor() {
+				this.cu = new CU();
+				this.alu = new ALU();
+			}
+		}
+
+		class Memory {
+			constructor(MiK) {
+				this.line = new Array();
+				for (var i = 0; i < sizeOfMemory; i++) {
+				   this.line.push(memoryPlaceholder);
+				}
+
+				this.MiK = MiK;
+			}
+
+			write(index, value) {
+				//this.line[index] = value;
+				this.MiK.dispatchEvent(new CustomEvent('writingInMemory', {'detail': {'index': index, 'value': value, 'comp': true}}));
+			}
+
+			getWord(address) {
+				let word = WordToNum(this.line[address] + this.line[address+1]);
+				debug(`Get word from: ${address} => ${this.line[address]} + ${this.line[address+1]} = ${word}`);
+				return word;
+			}
+		}
+
+		class MIK extends EventTarget {
+			constructor(environment) {
+				super();
+				this.processor = new Processor();
+				this.memory = new Memory(this);
+				this.halted = false;
+				this.environment = environment;
+
+				this.processor.cu.RA.addEventListener('registerChanged', (event) => {this.environment.regs.RA.val(event.detail.value); (event.detail.value > 0) ? this.environment.nextBtn.text('Следующий шаг') : this.environment.nextBtn.text('Запуск с трассировкой')});
+				this.processor.cu.RK.addEventListener('registerChanged', (event) => {this.environment.regs.RK.val(event.detail.value)});
+				this.processor.alu.S.addEventListener('registerChanged', (event) => {this.environment.regs.S.val(event.detail.value)});
+				this.processor.alu.R1.addEventListener('registerChanged', (event) => {this.environment.regs.R1.val(event.detail.value)});
+				this.processor.alu.W.addEventListener('registerChanged', (event) => {this.environment.regs.W.val(event.detail.value)});
+			}
+
+			async next(context) {
+				if (this.processor.cu.RA.data < this.memory.line.length) {
+					this.processor.cu.RK.val = this.memory.line[this.processor.cu.RA.data];
+					let status = await this.processor.cu.next(context);
+					debug('status of execution is ' + status);
+					if (status === null) {
+						internalError('Something went wrong, RA register are empty');
+					}else if (!status) {
+						this.say(`Unknown command: <${this.processor.cu.RK.data}> on ${preAddress(this.processor.cu.RA.data, this.processor.cu.RK.data)} address`);
+						this.halt();
+					}
+
+					return status
+				}else{
+					this.processor.cu.RA.val = 0;
+				}
+			}
+
+			reset() {
+				this.halted = false;
+				this.processor.cu.RA.val = 0;
+				this.processor.cu.RK.val = '00';
+				this.processor.alu.S.val = 0;
+				this.processor.alu.R1.val = 0;
+				//this.processor.alu.W.val = 0;
+				debug('---[reseted]---');
+			}
+
+			async execCommand(commandId, f) {
+				if (!this.halted) {
+					debug('command is: ' + commandId);
+					switch (f) {
+						case 0:
+						await f0Commands[commandId](this);
+						break;
+						case 1:
+						let arg = this.memory.getWord(this.processor.cu.RA.data-2);
+						debug('arg: ' + arg);
+						if ((arg < sizeOfMemory && arg >= 0) || commandId === '23') {
+							f1Commands[commandId](this, arg);
+						}else {
+							internalError(`Address (${arg}) out of memory range`);
+							this.halt();
+						}
+						break;
+					}
+					debug('--- end of execution ---\n');
+				}
+			}
+
+			async read() {
+				let input = Number(await this.environment.terminal.read(inputText));
+				return input;
+			}
+
+			halt() {
+				debug('|--[HALTED]--|');
+				this.say('[HALTED]');
+				this.halted = true;
+			}
+
+			say(msg, options) {
+				options = options || {}
+				this.environment.terminal.echo(msg, options);
+			}
+		}
+
+		//---Для комманд из файла
+		/*
+		* Файлы .miku - основной формат файлов MIKU (Не совместим с эмулятором MiK)
+		* Файлы .json - дополнительный формат файлов MIKU (Не совместим с эмулятором MiK)
+		* Файлы других форматов (.txt, .mik) - формат файлов эмулятора MiK (Совместим с эмулятором MIKU)
+		*/
+
+		/*
+		if (process.argv[2] != undefined) {
+			let commandsFromFile = fs.readFileSync(process.argv[2], 'utf8');
+			let typeOfFile = process.argv[2].substring(process.argv[2].lastIndexOf('.')+1);
+			if (typeOfFile === 'miku') {
+				// TODO
+			}else if(typeOfFile === 'json'){
+				commandsFromFile = JSON.parse(commandsFromFile);
+				for (var i = 0; i < commandsFromFile.length; i++) {
+					MiK.memory.line[i] = commandsFromFile[i];
+				}
+			}else {
+				for (var i = 0; i < commandsFromFile.length; i+=2) {
+					MiK.memory.line[i/2] = commandsFromFile.substring(i, i+2);
+				}
+			}
+		}
+		*/
+
+		//---
+	</script>
+
+	<div class="top-menu">
+		<div class="add-new-tab">+</div>
+		<div class="chrome-tabs chrome-tabs-dark-theme">
+		    <div class="chrome-tabs-content" style="width: calc(100% - 50px);"></div>
+		    <div class="chrome-tabs-bottom-bar"></div>
+		</div>
+	</div>
+	<div class="tabs-content"></div>
+
+	<script>
+
+	class TabContent {
+		constructor() {
+			this.memoryLines = [];
+			this.lastActiveMemoryLine = null;
+
+			//String to DOM element
+			this.content = $(tabContentTemplate);
+			this.content.appendTo('.tabs-content');
+
+			//--- Gridster ---
+				//Init gridster for this content block
+				let gridsterElem = this.content.children('ul');
+				this.gridster = gridsterElem.gridster({
+					widget_base_dimensions: ['auto', 110],
+					autogenerate_stylesheet: true,
+					min_cols: 1,
+					max_cols: 4,
+					min_rows: 50,
+					widget_margins: [21, 21],
+					helper: 'clone',
+					draggable: {
+						start: () => {gridsterElem.addClass('render-disabled')},
+						stop: () => {gridsterElem.removeClass('render-disabled')},
+						enabled: false,
+						handle: 'header'
+					},
+					resize: {
+						start: () => {gridsterElem.addClass('render-disabled')},
+						stop: () => {gridsterElem.removeClass('render-disabled')},
+						enabled: true
+					}
+				}).data('gridster');
+				gridsterElem.css({'padding': '0', 'margin': '0'});
+
+				//
+				gridsterElem.children('li').mousedown(changeActiveElement.bind(this));
+			//---
+
+			//--- Memory Line ---
+				//Creating memory line
+				new MemoryLine(this);
+			//---
+
+			//---Terminal---
+				async function whileNotHaltedExec() {
+					if (!this.MiK.halted) {
+						await this.MiK.next(this);
+						await whileNotHaltedExec.bind(this)();
+					}else {
+						console.log('end of whileNotHaltedExec');
+						return true;
+					}
+				}
+				//Create Terminal for this content block
+				this.terminal = this.content.find('.terminal-instance').terminal({
+					rouge: function() {
+						this.echo('Congratulations! your <a href="https://donnierussellii.github.io/JSRogue.html">reward</a>', {raw: true});
+					},
+					help: function() {
+						this.echo('cmds: run, next, reset, clear, help, r̸̶̴̡̨̨̡̛̀̕͘͢͟͢͟͟͡͞͝͠͞͝ớ̸̵̸̴̵̴̢̧̢̧́͢͢͢͜͝͡͡͠͠͠͝ú̶̵̵̢̡̧̢̀͘͘͜͢͟͝͠͝͡͞͝͡҉̸̵ǵ̷̸̵̴̴̴̷̵̸̷̢̨̧̨̡̛̀̀͘̕͘͞͝ȩ̸̴̸̶̵̸̵̴̡̛́͘͜͜͟͟͠͡͠͝͠͠͠');
+					},
+					run: async () => {
+						this.MiK.reset();
+						this.MiK.say(asciiLogo, {wrap: true});
+						debug(this.MiK.memory.line);
+						debug('---[start loop]---');
+
+						//Magic
+						await whileNotHaltedExec.bind(this).call();
+					},
+					next: async () => {
+						//Сброс хальта
+						this.MiK.halted = false;
+						debug('---[next]---');
+						await this.MiK.next(this);
+					},
+					reset : () => {
+						this.MiK.say('RA -> 0', {wrap: true});
+						this.MiK.say('RK -> 0', {wrap: true});
+						this.MiK.say('S  -> 0', {wrap: true});
+						this.MiK.say('R1 -> 0', {wrap: true});
+						this.MiK.say('W  -> 0', {wrap: true});
+						this.MiK.say('All registers are reseted', {wrap: true});
+						this.MiK.reset();
+					}
+				}, {
+					greetings: 'NOT FINAL BUILD',
+					prompt: defaultPrompt,
+					keydown: (event, terminal) => {
+						let parent = terminal.parent();
+						parent.scrollTop(parent[0].scrollHeight);
+						//$(terminal[0]).find('.terminal-scroll-marker')[0].scrollIntoView();
+
+					},
+				});
+				//Click spreading from terminal wrapper
+				this.content.find('.terminal-container').click((event) => {
+					this.terminal.focus();
+					return false;
+				});
+			//---
+
+			//---ASM Editor---
+				//Create ASM editor for this content block
+				CodeMirror(this.content.find('.asm-editor')[0], {
+					lineNumbers: true,
+					mode: 'javascript',
+					theme: 'monokai'
+				});
+			//---
+
+			//---Creating interpreter instance---
+				this.MiK = new MIK({'terminal': this.terminal, 'nextBtn': this.content.find('.next-btn'), 'regs': {'RA': this.content.find('.RA'), 'RK': this.content.find('.RK'), 'S': this.content.find('.S'), 'R1': this.content.find('.R1'), 'W': this.content.find('.W')}});
+
+				this.MiK.addEventListener('writingInMemory', (event) => {
+					console.log(event);
+					let index = event.detail.index;
+					let value = event.detail.value;
+					let comp = event.detail.comp;
+
+					this.MiK.memory.line[index] = value;
+					this.memoryLines.forEach((item) => {
+						item.changeMemory(index, value, comp);
+					});
+
+				});
+			//---
+
+			//---UI Buttons behavior
+				function clearComp() {
+					this.content.find('.memory-line-asm .-comp').each((index, elem) => {
+						index = $(elem).index();
+						let value = elem.children[0].value;
+						this.memoryLines.forEach((item) => {
+							console.log(index, value);
+							item.changeMemory(index, value);
+						});
+					});
+				}
+
+				this.content.find('.run-btn').click((event) => {
+					clearComp.bind(this).call();
+					this.terminal.exec('run');
+					this.terminal.parent().scrollTop(this.terminal.parent()[0].scrollHeight);
+					this.terminal.focus();
+					return false;
+				});
+				this.content.find('.next-btn').click((event) => {
+					this.terminal.exec('next');
+					this.terminal.parent().scrollTop(this.terminal.parent()[0].scrollHeight);
+					this.terminal.focus();
+					return false;
+				});
+				this.content.find('.reset-btn').click((event) => {
+					clearComp.bind(this).call();
+					this.terminal.exec('reset');
+					this.terminal.parent().scrollTop(this.terminal.parent()[0].scrollHeight);
+				});
+			//---
+		}
+
+		disable() {
+			this.content.addClass('hide-tab-content');
+		}
+
+		activate() {
+			this.content.removeClass('hide-tab-content');
+		}
+	}
+
+	class MemoryLine {
+		constructor(context, needSync) {
+			needSync = needSync || false;
+
+			//String to DOM element
+			this.context = context;
+			this.memoryLineElem = this.context.gridster.add_widget(memoryLineTemplate, 4, 1, 1, 3);
+
+			//Allow digits only, using a RegExp
+			this.memoryLineElem.find('.memory-line-dec > td > input').inputFilter(function(value) {
+				return /^[\d-]*$/.test(value);
+			}).focus(function(event) {
+				$(event.currentTarget).select();
+			}).change((event) => { //Sync with change with MiK memory
+				let value = event.currentTarget.value;
+				let index = $(event.currentTarget).parent().index();
+				//To patern
+				while (value.replace('-', '').length < 2) {value = "0" + value;};
+				//Emit event
+				context.MiK.dispatchEvent(new CustomEvent('writingInMemory', {'detail': {'index': index, 'value': value}}));
+			});
+
+			//Init scroll booster
+			new ScrollBooster({
+				viewport: this.memoryLineElem.find('.memory-line')[0],
+				content: this.memoryLineElem.find('.memory-line-pos')[0],
+				scrollMode: 'native',
+				direction: 'horizontal'
+			});
+
+			//Scroll indicator
+			this.memoryLineElem.find('.memory-line').scroll((event) => {
+				let indicator = $(event.currentTarget).siblings('.line-indicator-container').find('.line-indicator');
+				let parent = indicator.parent();
+				let memoryLine = indicator.parents('.line-indicator-container').siblings('.memory-line');
+				if (parent.css('display') === 'none') {
+					parent.fadeIn(200);
+				}
+				if (parent.attr('scroll') !== 'true') {
+					parent.attr('scroll', 'true');
+				}
+				indicator.text(((memoryLine.scrollLeft()/memoryLine[0].scrollWidth)*1000).toFixed());
+				$(event.currentTarget).scrollEnd(() => {
+					let parent = $(event.currentTarget).siblings('.line-indicator-container').find('.line-indicator').parent();
+					parent.attr('scroll', 'false');
+					if (parent.attr('dont-hide') != 'true') {
+						fadeOutIfNotHovered(parent, 'fast');
+					}else {
+						parent.on('_mouseup', () => {
+							fadeOutIfNotHovered(parent, 'fast');
+						});
+					}
+				}, 400);
+			});
+			this.memoryLineElem.find('.memory-line')
+				.mousedown(() => {
+						let parent = $(event.currentTarget).siblings('.line-indicator-container').find('.line-indicator').parent();
+						parent.attr('dont-hide', 'true');
+				})
+				.mouseup(() => {
+						let parent = $(event.currentTarget).siblings('.line-indicator-container').find('.line-indicator').parent();
+						parent.attr('dont-hide', 'false');
+						setTimeout(() => {parent.trigger('_mouseup');}, 500);
+				});
+
+			//Scroll indicator 'Enter' behavior
+			this.memoryLineElem.find('.line-indicator-container')[0].addEventListener('keydown', (event) => {
+				if (event.code === 'Enter') {
+					$(event.target).blur();
+					let memoryLine = $(event.target).parents('.line-indicator-container').siblings('.memory-line');
+					memoryLine.scrollLeft((Number($(event.target).children().text())*memoryLine[0].scrollWidth)/1000);
+					$(memoryLine.find('.memory-line-dec > td')[Number($(event.target).children().text())]).children().focus();
+					return false;
+				}else if (event.code === 'Escape') {
+					$(event.target).blur();
+					return false;
+				}
+			});
+
+			//Hightlighting
+			this.memoryLineElem.mousedown(changeActiveElement.bind(context));
+
+			//Save this instance in array of memory lines
+			this.index = this.context.memoryLines.push(this)-1;
+
+			//Buttons
+			this.memoryLineElem.find('.add-memory-line').click(() => {
+				new MemoryLine(context, true);
+			});
+			this.memoryLineElem.find('.remove-memory-line').click(() => {
+				this.destruct();
+			});
+
+			if (needSync) {
+				this.sync();
+			}
+		}
+
+		changeMemory(index, value, comp) {
+			comp = comp || false;
+			let dec = this.memoryLineElem.find('.memory-line-dec > td > input');
+			let asm = this.memoryLineElem.find('.memory-line-asm > td > input');
+
+			if (asm[index].parentElement.classList.contains('-f1cmd')) {
+				$(asm[index+1]).parent().removeClass('-arg');
+				$(dec[index+1]).parent().removeClass('-arg');
+				asm[index+1].setAttribute('value', mnemonicCmds[asm[index+1].value] === undefined ? '-' : mnemonicCmds[asm[index+1].value]);
+				asm[index+1].value = mnemonicCmds[asm[index+1].value] === undefined ? '-' : mnemonicCmds[asm[index+1].value];
+				$(asm[index+2]).parent().removeClass('-arg');
+				$(dec[index+2]).parent().removeClass('-arg');
+				asm[index+2].setAttribute('value', mnemonicCmds[asm[index+2].value] === undefined ? '-' : mnemonicCmds[asm[index+2].value]);
+				asm[index+2].value = mnemonicCmds[asm[index+2].value] === undefined ? '-' : mnemonicCmds[asm[index+2].value];
+
+				if (f1mnemonicCmds[value] === undefined) {
+					this.changeMemory(index+1, dec[index+1].value);
+					this.changeMemory(index+2, dec[index+2].value);
+				}
+			}
+
+			//if (asm[index].parentElement.classList.contains('-cmd')) {
+			$(asm[index]).parent().removeClass('-cmd -f0cmd -f1cmd -comp');
+			$(dec[index]).parent().removeClass('-cmd -f0cmd -f1cmd -comp');
+			//}
+
+			/*
+			if (mnemonicCmds[value] === undefined) {
+				if (index >= 2) {
+					if (asm[index-1].parentElement.classList.contains('-f1cmd') || asm[index-2].parentElement.classList.contains('-f1cmd')){
+						$(asm[index]).parent().addClass('-arg');
+						$(dec[index]).parent().addClass('-arg');
+						if (asm[index-2].parentElement.classList.contains('-f1cmd')) {
+							$(asm[index-1]).parent().addClass('-arg');
+							$(dec[index-1]).parent().addClass('-arg');
+						}
+					}
+				}
+			}
+			else {
+			*/
+			if (mnemonicCmds[value] != undefined && !asm[index].parentElement.classList.contains('-arg')) {
+				$(asm[index]).parent().addClass('-cmd');
+				$(dec[index]).parent().addClass('-cmd');
+				//Если команда с аргументом (f1)
+				if (f1mnemonicCmds[value] != undefined) {
+					//Если аргументы были командами
+					if (asm[index+1].parentElement.classList.contains('-f1cmd')) {
+						$(asm[index+2]).parent().removeClass('-arg');
+						$(dec[index+2]).parent().removeClass('-arg');
+						asm[index+2].setAttribute('value', mnemonicCmds[asm[index+2].value] === undefined ? '-' : mnemonicCmds[asm[index+2].value]);
+						asm[index+2].value = mnemonicCmds[asm[index+2].value] === undefined ? '-' : mnemonicCmds[asm[index+2].value];
+						$(asm[index+3]).parent().removeClass('-arg');
+						$(dec[index+3]).parent().removeClass('-arg');
+						asm[index+3].setAttribute('value', mnemonicCmds[asm[index+3].value] === undefined ? '-' : mnemonicCmds[asm[index+3].value]);
+						asm[index+3].value = mnemonicCmds[asm[index+3].value] === undefined ? '-' : mnemonicCmds[asm[index+3].value];
+					}
+					if (asm[index+2].parentElement.classList.contains('-f1cmd')) {
+						$(asm[index+3]).parent().removeClass('-arg');
+						$(dec[index+3]).parent().removeClass('-arg');
+						asm[index+3].setAttribute('value', mnemonicCmds[asm[index+3].value] === undefined ? '-' : mnemonicCmds[asm[index+3].value]);
+						asm[index+3].value = mnemonicCmds[asm[index+3].value] === undefined ? '-' : mnemonicCmds[asm[index+3].value];
+						$(asm[index+4]).parent().removeClass('-arg');
+						$(dec[index+4]).parent().removeClass('-arg');
+						asm[index+4].setAttribute('value', mnemonicCmds[asm[index+4].value] === undefined ? '-' : mnemonicCmds[asm[index+4].value]);
+						asm[index+4].value = mnemonicCmds[asm[index+4].value] === undefined ? '-' : mnemonicCmds[asm[index+4].value];
+					}
+					$(asm[index+1]).parent().removeClass('-cmd -f0cmd -f1cmd -comp');
+					$(dec[index+1]).parent().removeClass('-cmd -f0cmd -f1cmd -comp');
+					$(asm[index+2]).parent().removeClass('-cmd -f0cmd -f1cmd -comp');
+					$(dec[index+2]).parent().removeClass('-cmd -f0cmd -f1cmd -comp');
+
+					//Изменение значений asm на аргумент
+					asm[index+1].setAttribute('value', dec[index+1].value);
+					asm[index+1].value = dec[index+1].value;
+					asm[index+2].setAttribute('value', dec[index+2].value);
+					asm[index+2].value = dec[index+2].value;
+
+					$(asm[index]).parent().addClass('-f1cmd');
+					$(dec[index]).parent().addClass('-f1cmd');
+					$(asm[index+1]).parent().addClass('-arg');
+					$(dec[index+1]).parent().addClass('-arg');
+					$(asm[index+2]).parent().addClass('-arg');
+					$(dec[index+2]).parent().addClass('-arg');
+				}else {
+					$(asm[index]).parent().addClass('-f0cmd');
+					$(dec[index]).parent().addClass('-f0cmd');
+				}
+			}
+
+			//Если записал интерпритатор
+			if (comp) {
+				$(asm[index]).parent().addClass('-comp');
+				$(dec[index]).parent().addClass('-comp');
+			}
+
+			//Sync dec
+			dec[index].setAttribute('value', value);
+			dec[index].value = value;
+			//Sync asm
+			let asmVal = (asm[index].parentElement.classList.contains('-arg') || comp) ? value : (mnemonicCmds[value] === undefined ? '-' : mnemonicCmds[value]);
+			asm[index].setAttribute('value', asmVal);
+			asm[index].value = asmVal;
+			debug(this.context.MiK.memory.line);
+		}
+
+		sync() {
+			this.context.MiK.memory.line.forEach((item, index) => {
+				if (item != memoryPlaceholder) {
+					this.changeMemory(index, item);
+				}
+			});
+
+		}
+
+		destruct() {
+			this.context.gridster.remove_widget(this.memoryLineElem);
+			delete this.context.memoryLines[this.index];
+		}
+	}
+
+	const tabContent = {};
+	let lastActiveTab = {disable: () => {return null;}};
+
+	function changeActiveElement(event) {
+		if (!$(event.currentTarget).hasClass('active-block')) {
+			$('.gridster > ul > li.active-block').each((i, elem) => {
+				$(elem).removeClass('active-block');
+			})
+			if (event.currentTarget.classList.contains('memoryLineInstance')) {
+				this.lastActiveMemoryLine = event.currentTarget;
+			}
+			$(event.currentTarget).addClass('active-block');
+		}
+	}
+	function fadeOutIfNotFocused(elem, time) {
+		console.log($(elem).is(':focus'))
+		if ($(elem).is(':focus')) {
+			$(elem).focusout(() => {
+				$(elem).off('focusout');
+				$(elem).fadeOut(time);
+			});
+		}else{
+			$(elem).fadeOut(time);
+		}
+	}
+	function fadeOutIfNotHovered(elem, time) {
+		console.log($(elem).is(':hover'))
+		if ($(elem).is(':hover')) {
+			$(elem).mouseover(() => {
+				$(elem).off('mouseover');
+				fadeOutIfNotFocused(elem, time);
+			});
+		}else{
+			fadeOutIfNotFocused(elem, time);
+		}
+	}
+	function parseTabId(event) {
+		return Number(event.detail.tabEl.id.substr(event.detail.tabEl.id.indexOf('-')+1));
+	}
+
+	let chromeTabsElement = document.querySelector('.chrome-tabs');
+	let chromeTabs = new ChromeTabs;
+	chromeTabs.init(chromeTabsElement, { tabOverlapDistance: 14, minWidth: 45, maxWidth: 243 });
+
+	//Events
+	chromeTabsElement.addEventListener('tabAdd', (event) => {
+		let id = parseTabId(event);
+		tabContent[id] = new TabContent;
+	});
+	chromeTabsElement.addEventListener('tabRemove', (event) => {
+		let id = parseTabId(event);
+		delete tabContent[id];
+	});
+	chromeTabsElement.addEventListener('activeTabChange', (event) => {
+		let id = parseTabId(event);
+		lastActiveTab.disable();
+		lastActiveTab = tabContent[id];
+		lastActiveTab.activate();
+	});
+
+	chromeTabs.addTab();
+
+	$('.add-new-tab').click(() => {
+		chromeTabs.addTab();
+	});
+
+
+	//hotkeys listner
+	document.addEventListener('keydown', (event) => {
+		if (event.ctrlKey) {
+			event.preventDefault();
+            event.stopPropagation();
+			switch(event.code) {
+				case 'KeyG':
+				if (lastActiveTab.lastActiveMemoryLine != null) {
+					let container =  $(lastActiveTab.lastActiveMemoryLine).find('.memory-line-container');
+					let indicator = container.find('.line-indicator-container').children();
+					console.log(container, indicator);
+					indicator.fadeIn('fast').focus();
+					rng = document.createRange();
+					rng.setStart(indicator.children()[0], 0);
+					console.log(indicator.children().text().length);
+					rng.setEnd(indicator.children()[0], 1)
+					sel = window.getSelection();
+					sel.removeAllRanges();
+					sel.addRange(rng);
+					fadeOutIfNotHovered(indicator, 'fast');
+				}
+					break;
+				default:
+					//pass
+			}
+		}
+	});
+	</script>
+</body>
+</html>
