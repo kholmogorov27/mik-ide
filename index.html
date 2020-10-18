@@ -30,7 +30,7 @@
 	<script src="chrome-tabs/js/chrome-tabs.js"></script>
 	<script src="libs/scrollbooster.min.js"></script>
     <script src='https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.16.0/codemirror.js'></script>
-    <script src='https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.16.0/mode/javascript/javascript.js'></script>
+    <script src='https://codemirror.net/addon/mode/simple.js'></script>
 	<script src="libs/dsmorse-gridster/dist/jquery.dsmorse-gridster.min.js"></script>
 
 	<script src="globalFuncs.js"></script>
@@ -441,10 +441,18 @@
 
 			//---ASM Editor---
 				//Create ASM editor for this content block
-				CodeMirror(this.content.find('.asm-editor')[0], {
+				this.editor = CodeMirror(this.content.find('.asm-editor')[0], {
 					lineNumbers: true,
-					mode: 'javascript',
+					mode: 'MiK',
 					theme: 'monokai'
+				});
+
+				this.editor.on('beforeChange', (instance, changes) => {
+					if (changes.origin === '+input') {
+						if (instance.getLine(changes.from.line).substring(0, changes.from.ch).indexOf(';') === -1) {
+							changes.update(changes.from, changes.to, changes.text[0].toUpperCase());
+						}
+					}
 				});
 			//---
 
@@ -515,9 +523,9 @@
 			this.context = context;
 			this.memoryLineElem = this.context.gridster.add_widget(memoryLineTemplate, 4, 1, 1, 3);
 
-			//Allow digits only, using a RegExp
-			this.memoryLineElem.find('.memory-line-dec > td > input').inputFilter(function(value) {
-				return /^[\d-]*$/.test(value);
+			//Filter for dec
+			this.memoryLineElem.find('.memory-line-dec > td > input').inputFilter((value) => {
+				return /^[\d-]*$/.test(value) && value.replace('-', '').length <= 2;
 			}).focus(function(event) {
 				$(event.currentTarget).select();
 			}).change((event) => { //Sync with change with MiK memory

@@ -120,3 +120,13 @@ const mnemonicCmds = Object.assign(f0mnemonicCmds, f1mnemonicCmds);
 //---Terminal---
 
 //---
+
+CodeMirror.defineSimpleMode("MiK", {
+	// The start state contains the rules that are intially used
+	start: [
+		{regex: /(?:IN|OUT|HLT|ADD|SUB|CMP|LD|ST|LA|JMP|JZ|JM)\b/, token: "keyword"},
+		{regex: /0x[a-f\d]+|[-+]?(?:\.\d+|\d+\.?\d*)(?:e[-+]?\d+)?/i, token: "number"},
+		{regex: /\w+:/, token: "string"},
+		{regex: /;.*/, token: "comment"},
+	],
+});
