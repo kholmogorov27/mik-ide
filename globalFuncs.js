@@ -2,6 +2,7 @@ function throwError(msg) {
 	throw msg;
 }
 function internalError(msg) {
+	alertify.error('Error:' + msg);
 	console.log('Error:', msg);
 }
 function debug(msg) {
