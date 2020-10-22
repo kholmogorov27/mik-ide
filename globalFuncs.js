@@ -2,7 +2,7 @@ function throwError(msg) {
 	throw msg;
 }
 function internalError(msg) {
-	alertify.error('Error:' + msg);
+	alertify.error('Error: ' + msg);
 	console.log('Error:', msg);
 }
 function debug(msg) {
@@ -38,4 +38,7 @@ function preAddress(currentAddress, command) {
 	}else {
 		return currentAddress;
 	}
+}
+function getKeyByValue(object, value) {
+	return Object.keys(object).find(key => object[key] === value);
 }

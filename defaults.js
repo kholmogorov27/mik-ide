@@ -11,10 +11,10 @@ const tabContentTemplate = `
 						<fieldset>
 							<legend><div>УУ</div></legend>
 							<div class="reg-field">
-								<div><div class="address pos regs-info">RA</div></div><div><input class="address regs-info RA" type="text" value="0"></div>
+								<div><div class="address pos regs-info">RA</div></div><div><input class="address regs-info RA" regName="RA" type="text" value="0"></div>
 							</div>
 							<div class="reg-field">
-								<div><div class="address pos regs-info">RK</div></div><div><input class="address regs-info RK" type="text" value="${memoryPlaceholder}"></div>
+								<div><div class="address pos regs-info">RK</div></div><div><input class="address regs-info RK" regName="RK" type="text" value="${memoryPlaceholder}"></div>
 							</div>
 						</fieldset>
 					</div>
@@ -23,13 +23,13 @@ const tabContentTemplate = `
 						<fieldset>
 							<legend><div>АЛУ</div></legend>
 							<div class="reg-field">
-								<div><div class="address pos regs-info">S</div></div><div><input class="address regs-info S" type="text" value="0"></div>
+								<div><div class="address pos regs-info">S</div></div><div><input class="address regs-info S" regName="S" type="text" value="0"></div>
 							</div>
 							<div class="reg-field">
-								<div><div class="address pos regs-info">R1</div></div><div><input class="address regs-info R1" type="text" value="0"></div>
+								<div><div class="address pos regs-info">R1</div></div><div><input class="address regs-info R1" regName="R1" type="text" value="0"></div>
 							</div>
 							<div class="reg-field">
-								<div><div class="address pos regs-info">W</div></div><div><input class="address regs-info W" type="text" value="0"></div>
+								<div><div class="address pos regs-info">W</div></div><div><input class="address regs-info W" regName="W" type="text" value="0"></div>
 							</div>
 						</fieldset>
 					</div>
@@ -56,6 +56,7 @@ const tabContentTemplate = `
 				<div class="in-li-wrapper">
 					<div class="control-button run-btn">Запуск</div>
 					<div class="control-button next-btn">Запуск с трассировкой</div>
+					<div class="control-button compile-btn">Компилировать</div>
 				</div>
 				<header></header>
 			</li>
@@ -74,11 +75,6 @@ const memoryLineTemplate = `
 <li class="full-sized memoryLineInstance" descrition="Memory line">
 	<div class="in-li-wrapper" style="display: block;">
 		<div class="memory-line-container">
-			<table class="memory-line">
-				<tr class="memory-line-pos">${memoryLineDefault['memory-line-pos']}</tr>
-				<tr class="memory-line-dec">${memoryLineDefault['memory-line-dec']}</tr>
-				<tr class="memory-line-asm">${memoryLineDefault['memory-line-asm']}</tr>
-			</table>
 			<div class="line-indicator-container">
 				<div style="display: none;position: absolute;margin-top: 10px;border-radius: 0.5em;padding: 3px;background: #ccc; outline: none;" contenteditable="true">
 					<div class="line-indicator">0</div>
@@ -91,9 +87,16 @@ const memoryLineTemplate = `
 	<header></header>
 </li>
 `;
+const tableContentTemplate = `
+<table class="memory-line">
+	<tr class="memory-line-pos">${memoryLineDefault['memory-line-pos']}</tr>
+	<tr class="memory-line-dec">${memoryLineDefault['memory-line-dec']}</tr>
+	<tr class="memory-line-asm">${memoryLineDefault['memory-line-asm']}</tr>
+</table>
+`;
 
 const f0Commands = {'01': async function(context) {context.processor.alu.S.val = await context.read()}, '02': function(context) {context.say(SayText + context.processor.alu.S.data);}, '99': function(context) {context.halt();}, '00': function(context) {debug(`Warning! <00> command on ${preAddress(context.processor.cu.RA.data, context.processor.cu.RK.data)} address`); context.say(`Warning! <00> command on ${preAddress(context.processor.cu.RA.data, context.processor.cu.RK.data)} address`); context.halt();}};
-const f1Commands = {'10': function(context, arg) {context.processor.alu.R1.val = context.memory.getWord(arg);/*Number(strNumFix(context.memory.line[arg] + context.memory.line[arg+1]));*/ context.processor.alu.add();}, '11': function(context, arg) {context.processor.alu.R1.val = context.memory.getWord(arg);; context.processor.alu.sub();}, '12': function(context, arg) {context.processor.alu.R1.val = context.memory.getWord(arg); context.processor.alu.W.val = sign(context.memory.getWord(arg));}, '21': function(context, arg) {context.processor.alu.S.val = context.memory.getWord(arg);}, '22': function(context, arg) {context.memory.write(arg, String(context.processor.alu.S.data.pad(4)).substring(0, 2)); context.memory.write(arg+1, String(context.processor.alu.S.data.pad(4)).substring(2));}, '23': function(context, arg) {context.processor.alu.S.val = arg;}, '30': function(context, arg) {context.processor.cu.RA.val = arg;}, '33': function(context, arg) {if(context.processor.alu.W.data === 0){context.processor.cu.RA.val = arg}}, '34': function(context, arg) {if(context.processor.alu.W.data < 0){context.processor.cu.RA.val = arg}}};
+const f1Commands = {'10': function(context, arg) {context.processor.alu.R1.val = context.memory.getWord(arg);/*Number(strNumFix(context.memory.line[arg] + context.memory.line[arg+1]));*/ context.processor.alu.add();}, '11': function(context, arg) {context.processor.alu.R1.val = context.memory.getWord(arg);; context.processor.alu.sub();}, '12': function(context, arg) {context.processor.alu.R1.val = context.memory.getWord(arg); context.processor.alu.W.val = sign(context.memory.getWord(arg));}, '21': function(context, arg) {context.processor.alu.S.val = context.memory.getWord(arg);}, '22': function(context, arg) {context.memory.write(arg, String(context.processor.alu.S.data.pad(4)).substring(0, 2), true); context.memory.write(arg+1, String(context.processor.alu.S.data.pad(4)).substring(2), true);}, '23': function(context, arg) {context.processor.alu.S.val = arg;}, '30': function(context, arg) {context.processor.cu.RA.val = arg;}, '33': function(context, arg) {if(context.processor.alu.W.data === 0){context.processor.cu.RA.val = arg}}, '34': function(context, arg) {if(context.processor.alu.W.data < 0){context.processor.cu.RA.val = arg}}};
 const asciiLogo = String.raw`
 __/\\\\____________/\\\\__/\\\\\\\\\\\__/\\\________/\\\__/\\\________/\\\_
  _\/\\\\\\________/\\\\\\_\/////\\\///__\/\\\_____/\\\//__\/\\\_______\/\\\_
@@ -106,7 +109,7 @@ __/\\\\____________/\\\\__/\\\\\\\\\\\__/\\\________/\\\__/\\\________/\\\_
         _\///______________\///__\///////////__\///________\///_____\/////////_____
 
 `;
-const f0mnemonicCmds = {'01': 'IN', '02': 'OUT', '99': 'HLT'};
+const f0mnemonicCmds = {'01': 'IN', '02': 'OUT', '99': 'HALT'};
 const f1mnemonicCmds = {'10': 'ADD', '11': 'SUB', '12': 'CMP', '21': 'LD', '22': 'ST', '23': 'LA', '30': 'JMP', '33': 'JZ', '34': 'JM'};
 const mnemonicCmds = Object.assign(f0mnemonicCmds, f1mnemonicCmds);
 //--- Gridster ---
@@ -124,9 +127,15 @@ const mnemonicCmds = Object.assign(f0mnemonicCmds, f1mnemonicCmds);
 CodeMirror.defineSimpleMode("MiK", {
 	// The start state contains the rules that are intially used
 	start: [
-		{regex: /(?:IN|OUT|HLT|ADD|SUB|CMP|LD|ST|LA|JMP|JZ|JM)\b/, token: "keyword"},
+		{regex: /(?:IN|OUT|HALT|ADD|SUB|CMP|LD|ST|LA|JMP|JZ|JM)\b/, token: "keyword"},
 		{regex: /0x[a-f\d]+|[-+]?(?:\.\d+|\d+\.?\d*)(?:e[-+]?\d+)?/i, token: "number"},
 		{regex: /\w+:/, token: "string"},
 		{regex: /;.*/, token: "comment"},
 	],
 });
+
+const parser = {
+	tester: /((^\w+: ?)|^)(((?:IN|OUT|HALT))|((?:ADD|SUB|CMP|LD|ST|LA|JMP|JZ|JM)( [A-Z0-9]+)));( *\w*\d*)*/,
+	label: /(^\w+:)|^/,
+	cmd: /(((?:IN|OUT|HALT))|((?:ADD|SUB|CMP|LD|ST|LA|JMP|JZ|JM)( +[A-Z0-9]+)));/
+};
