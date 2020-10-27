@@ -57,6 +57,8 @@ const tabContentTemplate = `
 					<div class="control-button run-btn">Запуск</div>
 					<div class="control-button next-btn">Запуск с трассировкой</div>
 					<div class="control-button compile-btn">Компилировать</div>
+					<div class="control-button save-btn">Экспортировать</div>
+					<div class="control-button open-btn">Импортировать</div>
 				</div>
 				<header></header>
 			</li>

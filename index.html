@@ -6,7 +6,7 @@
 	<title>MIKU IDE</title>
 	<link href="css/styles.css" rel="stylesheet">
 	<link href="css/jquery.terminal.min.css" rel="stylesheet">
-	<link href="css/alertify.min.css" rel="stylesheet">
+	<link href="css/sweetalert2-dark.css" rel="stylesheet">
 	<link href="chrome-tabs/css/chrome-tabs.css" rel="stylesheet">
     <link href="chrome-tabs/css/chrome-tabs-dark-theme.css" rel="stylesheet">
 	<link href="css/relax-button.css" rel="stylesheet">
@@ -24,7 +24,7 @@
 	</script>
 	<script src="libs/jquery-3.5.1.min.js"></script>
 	<script src="libs/jquery.terminal.min.js"></script>
-	<script src="libs/alertify.js"></script>
+	<script src="libs/sweetalert2.min.js"></script>
 	<script src="libs/hotkeys.js"></script>
 	<script src="https://unpkg.com/draggabilly@2.1.1/dist/draggabilly.pkgd.min.js"></script>
 	<script src="chrome-tabs/js/chrome-tabs.js"></script>
@@ -158,7 +158,7 @@
 							return null
 						}
 					}else {
-						internalError(`Unknown command: <${currentCommand}>`);
+						internalError(`Unknown command <${this.RK.data}> on ${preAddress(this.RA.data, this.RK.data)} address`);
 						return false
 					}
 				}
@@ -297,7 +297,7 @@
 						debug(vars);
 						debug('labels:');
 						debug(labels);
-					}else if (line === '') {
+					}else if (line === '' || line.indexOf(';') === 0) {
 						//pass
 					}else {
 						internalError(`Compile error on ${index+1} line`);
@@ -326,7 +326,7 @@
 					if (status === null) {
 						internalError('Something went wrong, RA register are empty');
 					}else if (!status) {
-						this.say(`Unknown command: <${this.processor.cu.RK.data}> on ${preAddress(this.processor.cu.RA.data, this.processor.cu.RK.data)} address`);
+						this.say(`Unknown command <${this.processor.cu.RK.data}> on ${preAddress(this.processor.cu.RA.data, this.processor.cu.RK.data)} address`);
 						this.halt();
 					}
 
@@ -444,6 +444,7 @@
 			//String to DOM element
 			this.content = $(tabContentTemplate);
 			this.content.appendTo('.tabs-content');
+			
 
 			//--- Gridster ---
 				//Init gridster for this content block
@@ -485,7 +486,6 @@
 						await this.MiK.next(this);
 						await whileNotHaltedExec.bind(this)();
 					}else {
-						console.log('end of whileNotHaltedExec');
 						return true;
 					}
 				}
@@ -559,7 +559,6 @@
 				this.MiK = new MIK({'terminal': this.terminal, 'nextBtn': this.content.find('.next-btn'), 'regs': {'RA': this.content.find('.RA'), 'RK': this.content.find('.RK'), 'S': this.content.find('.S'), 'R1': this.content.find('.R1'), 'W': this.content.find('.W')}});
 
 				this.MiK.addEventListener('writingInMemory', (event) => {
-					console.log(event);
 					let index = event.detail.index;
 					let value = event.detail.value;
 					let comp = event.detail.comp;
@@ -578,7 +577,6 @@
 						index = $(elem).index();
 						let value = elem.children[0].value;
 						this.memoryLines.forEach((item) => {
-							console.log(index, value);
 							item.changeMemory(index, value);
 						});
 					});
@@ -605,6 +603,9 @@
 				this.content.find('.compile-btn').click((event) => {
 					clearComp.bind(this).call();
 					this.MiK.compile(this.editor.getValue().split('\n'));
+				});
+				this.content.find('.save-btn').click((event) => {
+					download(this.MiK.memory.line, 'untitled', 'miku');
 				});
 			//---
 
@@ -638,6 +639,7 @@
 			}else {
 				this.sync();
 			}
+			context.lastActiveMemoryLine = this.memoryLineElem;
 
 
 			//Filter for dec
@@ -871,7 +873,6 @@
 		}
 	}
 	function fadeOutIfNotFocused(elem, time) {
-		console.log($(elem).is(':focus'))
 		if ($(elem).is(':focus')) {
 			$(elem).focusout(() => {
 				$(elem).off('focusout');
@@ -882,7 +883,6 @@
 		}
 	}
 	function fadeOutIfNotHovered(elem, time) {
-		console.log($(elem).is(':hover'))
 		if ($(elem).is(':hover')) {
 			$(elem).mouseover(() => {
 				$(elem).off('mouseover');
@@ -933,11 +933,9 @@
 				if (lastActiveTab.lastActiveMemoryLine != null) {
 					let container =  $(lastActiveTab.lastActiveMemoryLine).find('.memory-line-container');
 					let indicator = container.find('.line-indicator-container').children();
-					console.log(container, indicator);
 					indicator.fadeIn('fast').focus();
 					rng = document.createRange();
 					rng.setStart(indicator.children()[0], 0);
-					console.log(indicator.children().text().length);
 					rng.setEnd(indicator.children()[0], 1)
 					sel = window.getSelection();
 					sel.removeAllRanges();
@@ -950,6 +948,7 @@
 			}
 		}
 	});
+
 	</script>
 </body>
 </html>

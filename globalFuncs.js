@@ -2,7 +2,12 @@ function throwError(msg) {
 	throw msg;
 }
 function internalError(msg) {
-	alertify.error('Error: ' + msg);
+	Swal.fire({
+		icon: 'error',
+		title: 'Error: ' + msg,
+		showConfirmButton: false,
+		timer: 3000
+	})
 	console.log('Error:', msg);
 }
 function debug(msg) {
@@ -41,4 +46,35 @@ function preAddress(currentAddress, command) {
 }
 function getKeyByValue(object, value) {
 	return Object.keys(object).find(key => object[key] === value);
+}
+function download(data, filename, type) {
+	Swal.fire({
+		html: `<input type="text" class="file-name" value="untitled">
+		<span style="font-family: system-ui;font-weight: bold;margin: -8px;">.</span>
+		<select class="type-selector">
+			<option selected="selected">mik</option>
+			<option>miku</option>
+			<option>asm</option>
+			<option>txt</option>
+	    </select>`
+	}).then((result) => {
+		if (result.isConfirmed) {
+			console.log($('.file-name').val(), $('.type-selector').val());
+		    var file = new Blob([data], {type: type});
+		    if (window.navigator.msSaveOrOpenBlob)
+		        window.navigator.msSaveOrOpenBlob(file, filename);
+		    else {
+		        var a = document.createElement("a"),
+		                url = URL.createObjectURL(file);
+		        a.href = url;
+		        a.download = filename;
+		        document.body.appendChild(a);
+		        a.click();
+		        setTimeout(function() {
+		            document.body.removeChild(a);
+		            window.URL.revokeObjectURL(url);
+		        }, 0);
+		    }
+		}
+	});
 }

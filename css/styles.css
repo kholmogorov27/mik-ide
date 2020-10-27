@@ -366,3 +366,12 @@ legend > div {
 .chrome-tab.unsaved .chrome-tab-close:hover{
 	background: #456ebf !important;
 }
+.swal2-container input[type=text], .swal2-container select{
+	padding: 10px;
+	background: #262625;
+	border: none;
+	color: #ccc;
+	border-radius: 5px;
+	font-size: medium;
+	text-align: end;
+}
