@@ -49,18 +49,28 @@ function getKeyByValue(object, value) {
 }
 function download(data, filename, type) {
 	Swal.fire({
-		html: `<input type="text" class="file-name" value="untitled">
+		html: `<input type="text" class="file-name" value="${chromeTabs.activeTabEl.querySelector('.chrome-tab-title').textContent}">
 		<span style="font-family: system-ui;font-weight: bold;margin: -8px;">.</span>
 		<select class="type-selector">
-			<option selected="selected">mik</option>
-			<option>miku</option>
+			<option selected="selected">miku</option>
+			<option>mik</option>
 			<option>asm</option>
 			<option>txt</option>
-	    </select>`
+	    </select>`,
+		confirmButtonText: 'Загрузить'
 	}).then((result) => {
 		if (result.isConfirmed) {
-			console.log($('.file-name').val(), $('.type-selector').val());
-		    var file = new Blob([data], {type: type});
+			let type = $('.type-selector').val();
+			let filename = $('.file-name').val() + '.' + type;
+			console.log(filename);
+			switch (type) {
+				case 'mik':
+					data = data.toString().replaceAll(',', '');
+					break;
+				default:
+
+			}
+		    let file = new Blob([data.toString().replaceAll(',', '')]);
 		    if (window.navigator.msSaveOrOpenBlob)
 		        window.navigator.msSaveOrOpenBlob(file, filename);
 		    else {

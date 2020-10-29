@@ -444,7 +444,7 @@
 			//String to DOM element
 			this.content = $(tabContentTemplate);
 			this.content.appendTo('.tabs-content');
-			
+
 
 			//--- Gridster ---
 				//Init gridster for this content block
@@ -605,7 +605,7 @@
 					this.MiK.compile(this.editor.getValue().split('\n'));
 				});
 				this.content.find('.save-btn').click((event) => {
-					download(this.MiK.memory.line, 'untitled', 'miku');
+					download(this.MiK.memory.line, 'untitled.dsfg', 'mik');
 				});
 			//---
 

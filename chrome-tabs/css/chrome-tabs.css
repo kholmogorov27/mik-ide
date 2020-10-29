@@ -173,7 +173,7 @@
   border-top-left-radius: 8px;
   border-top-right-radius: 8px;
 }
-.chrome-tabs .chrome-tab .chrome-tab-close {
+.chrome-tabs .chrome-tab .chrome-tab-close, .chrome-tab-rename {
   flex-grow: 0;
   flex-shrink: 0;
   position: relative;

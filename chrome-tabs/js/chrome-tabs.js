@@ -43,6 +43,7 @@
       </div>
       <div class="chrome-tab-content">
         <div class="chrome-tab-favicon"></div>
+		<div class="chrome-tab-rename"></div>
         <div class="chrome-tab-title"></div>
         <div class="chrome-tab-drag-handle"></div>
         <div class="chrome-tab-close"></div>
@@ -188,7 +189,6 @@
       const div = document.createElement('div')
 	  let id = 0;
 	  while (true) {
-		  console.log(document.getElementById('tab-' + id), id);
 		  if (document.getElementById('tab-' + id) === null) {
 			  break;
 		  }
@@ -209,6 +209,7 @@
       tabProperties = Object.assign({}, defaultTapProperties, tabProperties)
       this.tabContentEl.appendChild(tabEl)
       this.setTabCloseEventListener(tabEl)
+	  this.setTabRenameEventListener(tabEl)
       this.updateTab(tabEl, tabProperties)
       this.emit('tabAdd', { tabEl })
       if (!background) this.setCurrentTab(tabEl)
@@ -219,6 +220,19 @@
 
     setTabCloseEventListener(tabEl) {
       tabEl.querySelector('.chrome-tab-close').addEventListener('click', _ => this.removeTab(tabEl))
+    }
+	setTabRenameEventListener(tabEl) {
+      tabEl.querySelector('.chrome-tab-rename').addEventListener('click', _ => {
+		  Swal.fire({
+			  title: 'Имя файла',
+			  html: `<input type="text" class="file-name" style="text-align: center;" value="${tabEl.querySelector('.chrome-tab-title').textContent}">`,
+			  confirmButtonText: 'Готово'
+		  }).then((result) => {
+	  		if (result.isConfirmed) {
+				tabEl.querySelector('.chrome-tab-title').textContent = $('.file-name').val()
+			}
+		})
+	  })
     }
 
     get activeTabEl() {
