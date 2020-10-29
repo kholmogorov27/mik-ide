@@ -63,7 +63,7 @@ const tabContentTemplate = `
 				<header></header>
 			</li>
 		</ul>
-	<div style="width: 100%;align-self: end;text-align: center;font-size: large;color: grey;">NOT FINAL BUILD</div>
+	<div style="width: 100%;align-self: end;text-align: center;font-size: large;color: grey; margin-bottom: 10px;">1.0.0</div>
 </div>
 `;
 
