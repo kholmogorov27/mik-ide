@@ -47,28 +47,36 @@ function preAddress(currentAddress, command) {
 function getKeyByValue(object, value) {
 	return Object.keys(object).find(key => object[key] === value);
 }
-function download(data, filename, type) {
+function download(data) {
 	Swal.fire({
 		html: `<input type="text" class="file-name" value="${chromeTabs.activeTabEl.querySelector('.chrome-tab-title').textContent}">
 		<span style="font-family: system-ui;font-weight: bold;margin: -8px;">.</span>
 		<select class="type-selector">
 			<option selected="selected">miku</option>
 			<option>mik</option>
-			<option>asm</option>
+			<option>mis</option>
 			<option>txt</option>
 	    </select>`,
-		confirmButtonText: 'Загрузить'
+		confirmButtonText: 'Экспортировать'
 	}).then((result) => {
 		if (result.isConfirmed) {
 			let type = $('.type-selector').val();
 			let filename = $('.file-name').val() + '.' + type;
 			console.log(filename);
 			switch (type) {
+				case 'miku':
+					data = data.toString().replaceAll(',', '');
+					break;
 				case 'mik':
 					data = data.toString().replaceAll(',', '');
 					break;
+				case 'mis':
+					data = data.toString().replaceAll(',', '');
+					break;
+				case 'txt':
+					data = data.toString().replaceAll(',', '');
+					break;
 				default:
-
 			}
 		    let file = new Blob([data.toString().replaceAll(',', '')]);
 		    if (window.navigator.msSaveOrOpenBlob)
@@ -85,6 +93,40 @@ function download(data, filename, type) {
 		            window.URL.revokeObjectURL(url);
 		        }, 0);
 		    }
+		}
+	});
+}
+
+function open(memory) {
+	Swal.fire({
+		input: 'file',
+		confirmButtonText: 'Импортировать'
+	}).then((result) => {
+		if (result.isConfirmed) {
+			let reader = new FileReader();
+			reader.readAsText(result.value);
+
+			reader.onload = function() {
+				debug(reader.result);
+				let typeOfFile = result.value.name.substring(result.value.name.lastIndexOf('.')+1);
+				if (typeOfFile === 'miku') {
+					// TODO
+				}else if(typeOfFile === 'json'){
+					reader.result = JSON.parse(reader.result);
+					for (var i = 0; i < reader.result.length; i++) {
+						memory.write(i, reader.result[i], false);
+					}
+				}else {
+					for (var i = 0; i < reader.result.length; i+=2) {
+						if (reader.result.substring(i, i+2) != memory.line[i/2]) {
+							memory.write(i/2, reader.result.substring(i, i+2), false);
+						}
+					}
+				}
+			};
+			reader.onerror = function() {
+				console.log(reader.error);
+			};
 		}
 	});
 }
