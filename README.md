@@ -4,3 +4,5 @@ A graphical MiK development environment based on micro-computer emulator (MIKU) 
 * The project contains standalone CLI emulator working on Node.js and 
 web IDE based on the emulator
 * Built using JavaScript, HTML, CSS, jQuery, Node.js
+
+[Documentation](/docs.pdf)
